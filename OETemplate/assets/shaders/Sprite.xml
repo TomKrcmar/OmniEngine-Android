@@ -1,0 +1,8 @@
+<Shader vert="sources/Sprite.vert" frag="sources/Sprite.frag">
+	<Attribute name="vertPosition" preset="POSITION" />
+	<Attribute name="vertTexCoord" preset="TEXCOORD" />
+	<Attribute name="vertColor" preset="COLOR" />
+	
+	<Uniform name="mvpMatrix" preset="MVP_MATRIX" />
+	<Uniform name="diffuseSampler" type="INT" value="0" />
+</Shader>
