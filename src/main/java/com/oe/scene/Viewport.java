@@ -20,6 +20,7 @@ public class Viewport
 	public Viewport(OESurfaceView target, Camera camera) {
 		mRenderTarget = target;
 		mCamera = camera;
+		mClearColor = Color.BLACK;
 		mScreenRect = new Rectangle(0.0f, 0.0f, 1.0f, 1.0f);
 		getScreenRect(mScreenRect);
 	}

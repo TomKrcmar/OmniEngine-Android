@@ -1,6 +1,7 @@
 package com.oe.materials;
 
 import java.util.ArrayList;
+import java.util.Scanner;
 
 import android.content.res.AssetManager;
 import android.opengl.GLES20;
@@ -8,6 +9,9 @@ import android.opengl.GLES20;
 import com.oe.general.LogSystem;
 import com.oe.rendering.VertexAttribute;
 import com.oe.resources.Resource;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserFactory;
 
 public class Shader implements Resource
 {
@@ -24,10 +28,55 @@ public class Shader implements Resource
 	}
 	public static class Uniform {
 		public static enum Type {
-			INT, INT2, INT3, INT4,
-			FLOAT, VEC2, VEC3, VEC4,
-			MAT3, MAT4,
-			BUFFER
+			INT(1), INT2(2), INT3(3), INT4(4),
+			FLOAT(1), VEC2(2), VEC3(3), VEC4(4),
+			MAT3(9), MAT4(16),
+			BUFFER(1);
+
+			private int mComponents = 1;
+
+			private Type(int components) {
+				mComponents = components;
+			}
+
+			public Object getValueByString(String string) {
+				Object value = null;
+				if (this == INT || this == INT2 ||
+					this == INT3 || this == INT4)
+				{
+					Scanner scanner = new Scanner(string);
+					if (mComponents == 1) {
+						value = new Integer(scanner.nextInt());
+					}
+					else {
+						int[] array = new int[mComponents];
+						for (int i = 0; i < mComponents; i++) {
+							array[i] = scanner.nextInt();
+						}
+						value = array;
+					}
+				}
+				else if (this == FLOAT || this == VEC2 ||
+						this == VEC3 || this == VEC4 ||
+						this == MAT3 || this == MAT4)
+				{
+					Scanner scanner = new Scanner(string);
+					if (mComponents == 1) {
+						value = new Float(scanner.nextFloat());
+					}
+					else {
+						float[] array = new float[mComponents];
+						for (int i = 0; i < mComponents; i++) {
+							array[i] = scanner.nextFloat();
+						}
+						value = array;
+					}
+				}
+				else {
+					// Unsupported
+				}
+				return value;
+			}
 		};
 		public static enum Preset {
 			NONE(Type.FLOAT),
@@ -47,7 +96,7 @@ public class Shader implements Resource
 		public Preset mPreset;
 		public Type mType;
 		public Object mValue;
-		
+
 		public Uniform(String name, int index, Preset preset) {
 			mName = name;
 			mIndex = index;
@@ -82,21 +131,26 @@ public class Shader implements Resource
 			if (mVertBinding > 0) {
 				GLES20.glDetachShader(mProgramBinding, mVertBinding);
 				GLES20.glDeleteShader(mVertBinding);
+				mVertBinding = 0;
 			}
 			if (mFragBinding > 0) {
 				GLES20.glDetachShader(mProgramBinding, mFragBinding);
 				GLES20.glDeleteShader(mFragBinding);
+				mFragBinding = 0;
 			}
 			GLES20.glDeleteProgram(mProgramBinding);
+			mProgramBinding = 0;
 		}
 	}
 	
-	public void generateAndAttach() {
+	public void generate() {
 		if (mProgramBinding > 0)
 			destroy();
 		
 		mProgramBinding = GLES20.glCreateProgram();
-		
+	}
+
+	public void attach() {
 		if (mProgramBinding > 0) {
 			if (mVertBinding > 0)
 				GLES20.glAttachShader(mProgramBinding, mVertBinding);
@@ -104,7 +158,7 @@ public class Shader implements Resource
 				GLES20.glAttachShader(mProgramBinding, mFragBinding);
 		}
 	}
-	
+
 	public void link() {
 		if (mProgramBinding > 0) {
 			GLES20.glLinkProgram(mProgramBinding);
@@ -226,65 +280,124 @@ public class Shader implements Resource
 	
 	@Override
 	public boolean loadResource(AssetManager am, String filePath) {
-	/*	try {
-			XmlPullParser parser = Xml.newPullParser();
+		try {
+			XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
 			parser.setInput(am.open(filePath), null);
-			parser.nextTag();
-			
-			parser.require(XmlPullParser.START_TAG, null, "Shader");
+
 			String vertPath = "";
 			String fragPath = "";
-			
-			String vertSrc = "";
-			Scanner scanner = new Scanner(am.open(vertPath));
-			while (scanner.hasNextLine())
-				vertSrc += scanner.nextLine()+"\n";
-			scanner.close();
-			compileSource(Shader.Type.VERTEX, vertSrc);
-			
-			String fragSrc = "";
-			scanner = new Scanner(am.open(fragPath));
-			while (scanner.hasNextLine())
-				fragSrc += scanner.nextLine()+"\n";
-			scanner.close();
-			compileSource(Shader.Type.FRAGMENT, fragSrc);
-			
-			while (parser.next() != XmlPullParser.END_TAG) {
-				if (parser.getEventType() != XmlPullParser.START_TAG) {
-					continue;
+
+			final int OUTSIDE_SHADER = 0;
+			final int INSIDE_SHADER = 1;
+			int state = OUTSIDE_SHADER;
+			boolean linked = false;
+
+			int event = parser.getEventType();
+			while (event != XmlPullParser.END_DOCUMENT) {
+				if (event == XmlPullParser.START_TAG) {
+					String tag = parser.getName();
+					switch (state) {
+						case OUTSIDE_SHADER: {
+							if (tag.equals("Shader")) {
+								generate();
+								linked = false;
+
+								int count = parser.getAttributeCount();
+								for (int i = 0; i < count; i++) {
+									String key = parser.getAttributeName(i);
+									String value = parser.getAttributeValue(i);
+									Type type = null;
+
+									if (key.equals("vert"))
+										type = Type.VERTEX;
+									else if (key.equals("frag"))
+										type = Type.FRAGMENT;
+
+
+									if (type != null) {
+										String source = "";
+										Scanner scanner = new Scanner(am.open(value));
+										while (scanner.hasNextLine())
+											source += scanner.nextLine() + "\n";
+										scanner.close();
+										compileSource(type, source);
+									}
+								}
+								attach();
+								state = INSIDE_SHADER;
+							}
+						}
+					//	<Attribute name="vertColor" preset="COLOR" />
+
+					//	<Uniform name="mvpMatrix" preset="MVP_MATRIX" />
+					//	<Uniform name="diffuseSampler" type="INT" value="0" />
+						case INSIDE_SHADER: {
+							if (tag.equals("Attribute")) {
+								if (!linked) {
+									String name = null, preset = null;
+									int count = parser.getAttributeCount();
+									for (int i = 0; i < count; i++) {
+										String key = parser.getAttributeName(i);
+										String value = parser.getAttributeValue(i);
+										if (key.equals("name")) name = value;
+										if (key.equals("preset")) preset = value;
+									}
+									if (name != null && preset != null) {
+										mapAttribute(name, VertexAttribute.Preset.valueOf(preset));
+									}
+								}
+							}
+							else if (tag.equals("Uniform")) {
+								if (!linked) {
+									link();
+									linked = true;
+								}
+								String name = null, preset = null, stype = null, svalue = null;
+								int count = parser.getAttributeCount();
+								for (int i = 0; i < count; i++) {
+									String key = parser.getAttributeName(i);
+									String value = parser.getAttributeValue(i);
+									if (key.equals("name")) name = value;
+									if (key.equals("preset")) preset = value;
+									if (key.equals("type")) stype = value;
+									if (key.equals("value")) svalue = value;
+								}
+								if (name != null && preset != null) {
+									mapUniform(name, Uniform.Preset.valueOf(preset));
+								}
+								else if (name != null && stype != null && svalue != null) {
+									Uniform.Type type = Uniform.Type.valueOf(stype);
+									Object value = type.getValueByString(svalue);
+									mapUniform("diffuseSampler", type, value);
+								}
+							}
+						}
+					}
 				}
-				String name = parser.getName();
-				
-				if (name.equals("Attribute")) {
-					
+				else if (event == XmlPullParser.END_TAG) {
+					String tag = parser.getName();
+					switch (state) {
+						case INSIDE_SHADER: {
+							if (tag.equals("Shader"))
+								state = OUTSIDE_SHADER;
+						}
+					}
 				}
-				else if (name.equals("Uniform")) {
-					
-				}
-				else {
-				//	skip(parser);
-				}
+				event = parser.next();
 			}
+
+			return true;
 		}
-		catch (IOException e) {
+		catch (Exception e) {
 			e.printStackTrace();
 		}
-		
-		generateAndAttach();
-		
-		mapAttribute("vertPosition", VertexAttribute.Preset.POSITION);
-		mapAttribute("vertTexCoord", VertexAttribute.Preset.TEXCOORD);
-		mapAttribute("vertColor", VertexAttribute.Preset.COLOR);
-		
-		link();
-		
-		mapUniform("mvpMatrix", Shader.Uniform.Preset.MVP_MATRIX);
-		mapUniform("diffuseSampler", Shader.Uniform.Type.INT, Integer.valueOf(0));
-		*/
-		return true;
+		return false;
 	}
 	@Override
 	public boolean unloadResource() {
+		destroy();
+		mAttributes.clear();
+		mUniforms.clear();
 		return true;
 	}
 }

@@ -43,7 +43,7 @@ public class OESurfaceView extends GLSurfaceView
 		public void onDrawFrame(GL10 gl) {
 			for (int i = 0; i < mListeners.size(); i++)
 				mListeners.get(i).onRenderingFrame(mTarget);
-			
+
 			mTarget.render();
 			
 			for (int i = 0; i < mListeners.size(); i++)
@@ -56,8 +56,9 @@ public class OESurfaceView extends GLSurfaceView
 	
 	public OESurfaceView(Context context) {
 		super(context);
-		Renderer renderer = new Renderer(this);
+		this.setEGLConfigChooser(8 , 8, 8, 8, 16, 0);
 		this.setEGLContextClientVersion(2);
+		Renderer renderer = new Renderer(this);
 		this.setRenderer(renderer);
 		
 		mListeners = new ArrayList<Listener>();

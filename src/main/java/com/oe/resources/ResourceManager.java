@@ -1,5 +1,6 @@
 package com.oe.resources;
 
+import java.io.File;
 import java.util.HashMap;
 
 import android.content.res.AssetManager;
@@ -42,6 +43,24 @@ public abstract class ResourceManager<T extends Resource>
 		String name = filePath;
 		declare(name, filePath);
 	}
+	public void declareAll(String directory) {
+		try {
+			String[] resources = mAssetManager.list(directory);
+			for (int j = 0; j < resources.length; j++) {
+				String path = resources[j];
+				String name = path;
+				int dotIndex = name.lastIndexOf(".");
+				if (dotIndex >= 0) {
+					name = name.substring(0, dotIndex);
+					this.declare(name, directory + File.separator + path);
+				}
+			}
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	public void declareUnmanaged(String name, T resource) {
 		declare(name, null);
 		ResourceDeclaration res = mResourceMap.get(name);
@@ -49,6 +68,7 @@ public abstract class ResourceManager<T extends Resource>
 			res.resource = resource;
 		}
 	}
+
 	public boolean contains(String name) {
 		ResourceDeclaration res = mResourceMap.get(name);
 		return (res != null);

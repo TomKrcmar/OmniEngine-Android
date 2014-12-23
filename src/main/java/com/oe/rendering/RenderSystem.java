@@ -4,6 +4,7 @@ import java.util.ArrayList;
 
 import com.oe.general.Color;
 import com.oe.materials.Material;
+import com.oe.materials.Pass;
 import com.oe.materials.Shader;
 import com.oe.materials.Texture;
 import com.oe.math.Rectangle;
@@ -18,7 +19,7 @@ public class RenderSystem
 	private ArrayList<OESurfaceView> mRenderTargets;
 	private Viewport mActiveViewport;
 	
-	private Material.Pass mActivePass;
+	private Pass mActivePass;
 	private Shader mActiveShader;
 	
 	private float[] mModelMatrix = new float[16];
@@ -114,7 +115,7 @@ public class RenderSystem
 		updateMVPMatrix();
 	}
 	
-	public void setActivePass(Material.Pass pass) {
+	public void setActivePass(Pass pass) {
 		if (mActivePass != pass) {
 			mActivePass = pass;
 			Shader shader = pass.mShader;
@@ -338,10 +339,10 @@ public class RenderSystem
 					case TRIANGLE_STRIP:	geomType = GLES20.GL_TRIANGLE_STRIP;break;
 				}
 				
-				ArrayList<Material.Pass> passes = material.getPasses();
+				ArrayList<Pass> passes = material.getPasses();
 				int numPasses =  passes.size();
 				for (int i = 0; i < numPasses; i++) {
-					Material.Pass pass = passes.get(i);
+					Pass pass = passes.get(i);
 					Shader shader = pass.mShader;
 					
 					setActivePass(pass);
